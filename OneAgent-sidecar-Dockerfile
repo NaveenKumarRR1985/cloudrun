@@ -4,8 +4,11 @@ ARG ZIP_FILE=DynatraceLatestInstall.zip
 RUN mkdir -p /image
 COPY ${ZIP_FILE} /image/oneagent.zip
 
-# optional: set the stage (nonprod/prod/etc.)
+# stage name used in the fixed preload path
 ENV DT_STAGE=nonprod
+# health endpoint config
+ENV HEALTH_PORT=8082
+ENV HEALTH_PATH=/healthz
 
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
