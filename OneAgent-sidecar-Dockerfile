@@ -1,0 +1,14 @@
+FROM python:3.12-slim-bullseye
+
+ARG ZIP_FILE=DynatraceLatestInstall.zip
+RUN mkdir -p /image
+COPY ${ZIP_FILE} /image/oneagent.zip
+
+# optional: set the stage (nonprod/prod/etc.)
+ENV DT_STAGE=nonprod
+
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+USER 0
+ENTRYPOINT ["/entrypoint.sh"]
