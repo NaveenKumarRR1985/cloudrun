@@ -1,17 +1,22 @@
 FROM python:3.12-slim-bullseye
 
-ARG ZIP_FILE=DynatraceLatestInstall.zip
+# Bring the OneAgent zip at build time
+ARG ZIP_FILE=payload.zip
 RUN mkdir -p /image
 COPY ${ZIP_FILE} /image/oneagent.zip
 
-# stage name used in the fixed preload path
+# config
 ENV DT_STAGE=nonprod
-# health endpoint config
 ENV HEALTH_PORT=8082
 ENV HEALTH_PATH=/healthz
 
+# entrypoint
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
+# health port (for humans/tools; Cloud Run doesn't require EXPOSE)
+EXPOSE 8082
+
+# need to write to /opt/dynatrace (shared tmpfs)
 USER 0
 ENTRYPOINT ["/entrypoint.sh"]
