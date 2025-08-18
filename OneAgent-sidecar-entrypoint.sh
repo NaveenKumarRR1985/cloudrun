@@ -1,5 +1,5 @@
 #!/bin/sh
-# POSIX sh (no pipefail)
+# POSIX shell (dash compatible, no bashisms)
 set -eu
 
 DT_DIR="${DT_DIR:-/opt/dynatrace}"
@@ -14,60 +14,40 @@ TARGET_LIB="${TARGET_LIB64}/liboneagentproc.so"
 
 echo "[OneAgent] DT_DIR=${DT_DIR} DT_STAGE=${DT_STAGE}"
 
-# Ensure mount path exists (Cloud Run will mount tmpfs here)
 mkdir -p "${DT_DIR}"
 
-# Extract and prepare fixed path only if not already present
+# ---- Extract ZIP if target lib not already present ----
 if [ ! -e "${TARGET_LIB}" ]; then
   echo "[OneAgent] Extracting OneAgent into ${DT_DIR}..."
   python3 - <<'PY'
-import os, zipfile, sys, shutil, stat
-
-dt_dir    = os.environ.get("DT_DIR", "/opt/dynatrace")
-zip_path  = os.environ.get("ZIP_PATH", "/image/oneagent.zip")
-stage     = os.environ.get("DT_STAGE", "nonprod")
-target_lib = os.path.join(dt_dir, "oneagent", stage, "agent", "lib64", "liboneagentproc.so")
-
-# extract zip
+import os, zipfile
+dt_dir   = os.environ.get("DT_DIR", "/opt/dynatrace")
+zip_path = os.environ.get("ZIP_PATH", "/image/oneagent.zip")
 with zipfile.ZipFile(zip_path) as z:
     z.extractall(dt_dir)
-
-# # locate actual lib
-# real_lib = None
-# for root, _, files in os.walk(dt_dir):
-#     if "liboneagentproc.so" in files:
-#         real_lib = os.path.join(root, "liboneagentproc.so")
-#         break
-# if not real_lib:
-#     sys.stderr.write("[OneAgent] ERROR: liboneagentproc.so not found after extraction.\n")
-#     sys.exit(1)
-
-# # ensure requested path exists
-# os.makedirs(os.path.dirname(target_lib), exist_ok=True)
-
-# # try to symlink; if FS disallows, copy
-# try:
-#     if os.path.lexists(target_lib):
-#         os.remove(target_lib)
-#     os.symlink(real_lib, target_lib)
-# except OSError:
-#     shutil.copy2(real_lib, target_lib)
-
-# make world-readable so any UID in app container can load it
-for root, dirs, files in os.walk(dt_dir):
-    for d in dirs:
-        os.chmod(os.path.join(root, d), 0o755)
-    for f in files:
-        os.chmod(os.path.join(root, f), 0o644)
-
-print(f"[OneAgent] Ready. {target_lib}")
 PY
+
+  # Explicitly find the real 64-bit library, not the 32-bit one
+  REAL_LIB="$(find "${DT_DIR}" -path "*/agent/lib64/liboneagentproc.so" -type f | head -n1 || true)"
+  if [ -z "${REAL_LIB}" ]; then
+    echo "[OneAgent] ERROR: 64-bit liboneagentproc.so not found in extracted ZIP." >&2
+    exit 1
+  fi
+
+  # Create stable preload path
+  mkdir -p "${TARGET_LIB64}"
+  rm -f "${TARGET_LIB}"
+  ln -s "${REAL_LIB}" "${TARGET_LIB}"
+
+  chmod -R a+rX "${DT_DIR}"
+  echo "[OneAgent] Ready. ${TARGET_LIB} -> ${REAL_LIB}"
 else
   echo "[OneAgent] Reusing existing ${TARGET_LIB}"
 fi
 
-# Minimal HTTP health server (starts AFTER the agent is ready)
+# ---- Minimal health server ----
 echo "[OneAgent] Starting health server on :${HEALTH_PORT}${HEALTH_PATH}"
+
 exec python3 - <<PY
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import os, sys
@@ -83,5 +63,5 @@ class H(BaseHTTPRequestHandler):
 try:
     HTTPServer(("0.0.0.0", PORT), H).serve_forever()
 except Exception as e:
-    sys.stderr.write(f"[OneAgent] Health server failed: {e}\n"); sys.exit(1)
+    sys.stderr.write(f"[OneAgent] Health server failed: {e}\\n"); sys.exit(1)
 PY
