@@ -1,0 +1,90 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dynatrace-sample-app
+  labels:
+    app: dynatrace-sample-app
+    version: v1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: dynatrace-sample-app
+  template:
+    metadata:
+      labels:
+        app: dynatrace-sample-app
+        version: v1
+      annotations:
+        # Dynatrace annotations for better visibility
+        dynatrace.com/inject: "true"
+        dynatrace.com/technologies: "python"
+    spec:
+      containers:
+      - name: sample-app
+        image: gcr.io/YOUR_PROJECT_ID/dynatrace-sample-app:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: PORT
+          value: "8000"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dynatrace-sample-app-service
+  labels:
+    app: dynatrace-sample-app
+spec:
+  selector:
+    app: dynatrace-sample-app
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8000
+    protocol: TCP
+  type: ClusterIP
+---
+# Optional: Ingress for external access
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dynatrace-sample-app-ingress
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+    # Add any other ingress annotations you need
+spec:
+  rules:
+  - host: dynatrace-sample.yourdomain.com  # Replace with your domain
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: dynatrace-sample-app-service
+            port:
+              number: 80
