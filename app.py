@@ -695,10 +695,10 @@ def get_activegate_recommendations(test_type, results):
     if test_type == 'connectivity':
         failed_connections = len([r for r in results if r.get('status') == 'failed'])
         if failed_connections > 0:
-            recommendations.append("⚠️ Some ActiveGate endpoints are unreachable. Check network configuration and firewall rules.")
+            recommendations.append("⚠️ ActiveGate endpoints are unreachable. Check network configuration and firewall rules.")
             recommendations.append("🔧 Verify ActiveGate services are running and ports 9999/443 are accessible.")
         else:
-            recommendations.append("✅ All ActiveGate endpoints are reachable.")
+            recommendations.append("✅ ActiveGate endpoints are reachable.")
     
     elif test_type == 'latency':
         high_latency = [r for r in results if isinstance(r.get('avg_latency_ms'), (int, float)) and r['avg_latency_ms'] > 100]
