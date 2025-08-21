@@ -718,6 +718,106 @@ def get_activegate_recommendations(test_type, results):
     
     return recommendations
 
+def check_oneagent_status():
+    """Comprehensive OneAgent status check"""
+    print("\n" + "="*50)
+    print("    DYNATRACE ONEAGENT VERIFICATION")
+    print("="*50)
+    
+    # 1. Check Environment Variables
+    print("\n1. Environment Variables:")
+    env_vars = {
+        'DT_CUSTOM_PROP': os.environ.get('DT_CUSTOM_PROP'),
+        'DT_TAGS': os.environ.get('DT_TAGS'), 
+        'LD_PRELOAD': os.environ.get('LD_PRELOAD'),
+        'DT_LOGLEVELCON': os.environ.get('DT_LOGLEVELCON'),
+        'DT_CONNECTION_POINT': os.environ.get('DT_CONNECTION_POINT'),
+        'DT_LOGSTREAM': os.environ.get('DT_LOGSTREAM')
+    }
+    
+    for var, value in env_vars.items():
+        if value:
+            print(f"   ✓ {var}: {value}")
+        else:
+            print(f"   ✗ {var}: Not set")
+    
+    # 2. Check OneAgent Installation
+    print("\n2. OneAgent Installation:")
+    oneagent_paths = [
+        '/opt/dynatrace/oneagent/',
+        '/opt/dynatrace/oneagent/agent/',
+        '/opt/dynatrace/oneagent/agent/lib64/'
+    ]
+    
+    installation_found = False
+    for path in oneagent_paths:
+        if os.path.exists(path):
+            print(f"   ✓ {path} exists")
+            installation_found = True
+            # List some files
+            try:
+                files = os.listdir(path)[:5]  # First 5 files
+                print(f"     Files: {files}")
+            except:
+                pass
+        else:
+            print(f"   ✗ {path} not found")
+    
+    # 3. Check Running Processes
+    print("\n3. OneAgent Processes:")
+    try:
+        result = subprocess.run(['ps', 'aux'], capture_output=True, text=True, timeout=5)
+        oneagent_processes = [line for line in result.stdout.split('\n') if 'oneagent' in line.lower()]
+        
+        if oneagent_processes:
+            print(f"   ✓ Found {len(oneagent_processes)} OneAgent process(es)")
+            for proc in oneagent_processes[:3]:  # Show first 3
+                print(f"     {proc.strip()}")
+        else:
+            print("   ✗ No OneAgent processes found")
+    except Exception as e:
+        print(f"   ✗ Error checking processes: {e}")
+    
+    # 4. Check LD_PRELOAD
+    print("\n4. Library Preloading:")
+    ld_preload = os.environ.get('LD_PRELOAD', '')
+    if ld_preload and 'oneagent' in ld_preload.lower():
+        print(f"   ✓ OneAgent library in LD_PRELOAD")
+        print(f"     {ld_preload}")
+    else:
+        print("   ✗ OneAgent library not in LD_PRELOAD")
+    
+    # 5. Check Python modules
+    print("\n5. Loaded Python Modules:")
+    dt_modules = [mod for mod in sys.modules.keys() if 'dynatrace' in mod.lower()]
+    if dt_modules:
+        print(f"   ✓ Dynatrace modules: {dt_modules}")
+    else:
+        print("   ✗ No Dynatrace Python modules loaded")
+    
+    # 6. Overall Status
+    print("\n6. Overall Status:")
+    if installation_found and ld_preload:
+        print("   ✓ OneAgent appears to be properly installed and configured")
+    elif installation_found:
+        print("   ⚠ OneAgent installed but may not be active (check LD_PRELOAD)")
+    else:
+        print("   ✗ OneAgent installation not detected")
+    
+    print("="*50 + "\n")
+    
+@app.route('/oneagent-status')
+def oneagent_status():
+    """Endpoint to check OneAgent status anytime"""
+    return {
+        'ld_preload': os.environ.get('LD_PRELOAD'),
+        'dt_connection_point': os.environ.get('DT_CONNECTION_POINT'),
+        'dt_loglevelcon': os.environ.get('DT_LOGLEVELCON'),
+        'oneagent_directory_exists': os.path.exists('/opt/dynatrace/oneagent/'),
+        'timestamp': str(datetime.utcnow()) if 'datetime' in globals() else 'N/A'
+    }
+
+
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint for Cloud Run startup probe"""
