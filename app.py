@@ -431,6 +431,14 @@ HTML_TEMPLATE = """
                     <button class="btn btn-primary" onclick="runMultipleTests()">Multiple Tests</button>
                 </div>
             </div>
+            <div class="endpoint-card">
+                <h3>OneAgent Testing</h3>
+                <p>OneAgent test to check ENv's.</p>
+                <div class="btn-group">
+                    <button class="btn btn-danger" onclick="testEndpoint('/oneagent-status', 'OneAgnet Status')">Check OneAgent</button>
+                   
+                </div>
+            </div>
         </div>
 
         <div id="resultPanel" class="result-panel">
