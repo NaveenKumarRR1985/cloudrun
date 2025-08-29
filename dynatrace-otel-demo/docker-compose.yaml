@@ -1,0 +1,26 @@
+services:
+  app:
+    build: ./app
+    ports: [ "18080:8080" ]              # UI → http://localhost:18080/
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://collector:5517
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_RESOURCE_ATTRIBUTES: service.name=dynatrace-test-app
+      OTEL_SERVICE_NAME: dynatrace-test-app
+      PORT: 8080
+    depends_on:
+      collector: { condition: service_healthy }
+
+  collector:
+    build: ./collector
+    ports:
+      - "5517:5517"   # OTLP gRPC
+      - "5518:5518"   # OTLP HTTP
+      - "61333:13133" # health (external 61333 to avoid clash)
+      - "58889:8889"  # Prometheus metrics
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://127.0.0.1:13133/ >NUL"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
