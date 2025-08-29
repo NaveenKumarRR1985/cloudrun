@@ -1,0 +1,9 @@
+# existing lines …
+Flask==3.0.0
+requests==2.31.0
+psutil==5.9.6
+
+# zero-code OpenTelemetry
+opentelemetry-distro[otlp]==0.47b0     # auto-instrumentation agent
+opentelemetry-instrumentation==0.47b0  # discovers frameworks at runtime
+gunicorn==21.2.0                       # (already present in your CMD)
