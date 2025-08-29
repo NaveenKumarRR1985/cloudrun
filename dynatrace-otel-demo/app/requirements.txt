@@ -1,8 +1,18 @@
-flask==3.0.2
+# Flask
+Flask==2.3.3
+requests==2.31.0
+psutil==5.9.5
 gunicorn==21.2.0
-psutil==5.9.8
-requests==2.32.3
-opentelemetry-api==1.26.0
-opentelemetry-sdk==1.26.0
-opentelemetry-instrumentation-flask==0.43b0
-opentelemetry-exporter-otlp==1.26.0
+
+# OpenTelemetry packages
+opentelemetry-distro
+opentelemetry-exporter-otlp-proto-http
+opentelemetry-instrumentation-flask
+opentelemetry-instrumentation-requests
+
+# Metrics support
+opentelemetry-api
+opentelemetry-sdk
+
+# Basic dependencies
+requests==2.31.0
