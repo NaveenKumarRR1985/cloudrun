@@ -1,0 +1,90 @@
+# OpenTelemetry Collector configuration for Dynatrace SaaS only
+receivers:
+  # OTLP receiver for receiving telemetry from applications
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # Batch processor for better performance
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+    send_batch_max_size: 2048
+
+  # Memory limiter to prevent OOM
+  memory_limiter:
+    limit_mib: 256
+
+  # Resource processor to add additional resource attributes
+  resource:
+    attributes:
+      - key: service.namespace
+        value: "cloud-run"
+        action: upsert
+      - key: deployment.environment
+        value: "production"
+        action: upsert
+      - key: cloud.provider
+        value: "gcp"
+        action: upsert
+      - key: cloud.platform
+        value: "gcp_cloud_run"
+        action: upsert
+
+exporters:
+  # Dynatrace exporter
+  dynatrace:
+    # Your Dynatrace environment URL - templated from Terraform
+    endpoint: "${dynatrace_endpoint}"
+    
+    # API token from environment variable
+    api_token: "$${DT_API_TOKEN}"
+    
+    # Default service name for better entity detection
+    default_service_name: "google-otel-cloud-run-sample"
+    
+    # Optional: Prefix for metrics
+    prefix: "cloudrun."
+
+extensions:
+  # Health check extension
+  health_check:
+    endpoint: 0.0.0.0:13133
+    path: "/"
+  
+  # Memory ballast for stable memory usage
+  memory_ballast:
+    size_mib: 64
+
+service:
+  extensions: [health_check, memory_ballast]
+  
+  pipelines:
+    # Traces pipeline
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [dynatrace]
+    
+    # Metrics pipeline
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [dynatrace]
+    
+    # Logs pipeline
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [dynatrace]
+
+  # Telemetry configuration
+  telemetry:
+    logs:
+      level: "info"
+    metrics:
+      address: 0.0.0.0:8888
