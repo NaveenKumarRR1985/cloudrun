@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  flask-app:
+    build: ./app
+    ports:
+      - "8080:8080"
+    environment:
+      # OpenTelemetry configuration
+      - OTEL_SERVICE_NAME=dynatrace-test-app
+      - OTEL_SERVICE_VERSION=1.0.0
+      - OTEL_RESOURCE_ATTRIBUTES=deployment.environment=local,service.namespace=docker
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+      - OTEL_TRACES_EXPORTER=otlp
+      - OTEL_METRICS_EXPORTER=otlp
+      - OTEL_LOGS_EXPORTER=otlp
+      - OTEL_PYTHON_LOG_CORRELATION=true
+    depends_on:
+      - otel-collector
+    networks:
+      - telemetry
+
+  otel-collector:
+    build: ./otel-collector
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+    volumes:
+      - telemetry-data:/tmp/telemetry
+    networks:
+      - telemetry
+    command: ["--config=/etc/otel-collector-config.yaml"]
+
+volumes:
+  telemetry-data:
+
+networks:
+  telemetry:
+    driver: bridge

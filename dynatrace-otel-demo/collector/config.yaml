@@ -12,20 +12,12 @@ processors:
     send_batch_size: 1024
   memory_limiter:
     limit_mib: 512
-  resource:
-    attributes:
-      - key: deployment.environment
-        value: local
-        action: upsert
 
 exporters:
-  jaeger:
-    endpoint: jaeger:14250
+  otlp/jaeger:
+    endpoint: http://jaeger-collector:4318
     tls:
       insecure: true
-  
-  prometheus:
-    endpoint: "0.0.0.0:8889"
     
   logging:
     loglevel: debug
@@ -34,16 +26,9 @@ service:
   telemetry:
     logs:
       level: "debug"
-    metrics:
-      address: 0.0.0.0:8888
   
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [memory_limiter, resource, batch]
-      exporters: [jaeger, logging]
-    
-    metrics:
-      receivers: [otlp]
-      processors: [memory_limiter, resource, batch]
-      exporters: [prometheus, logging]
+      processors: [memory_limiter, batch]
+      exporters: [otlp/jaeger, logging]
