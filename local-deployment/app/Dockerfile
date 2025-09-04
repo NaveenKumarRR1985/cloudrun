@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install dependencies
-COPY app/requirements.txt .
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Install OpenTelemetry auto-instrumentation packages
@@ -27,7 +27,7 @@ RUN pip install --no-cache-dir \
 RUN opentelemetry-bootstrap --action=install
 
 # Copy application code
-COPY app/ .
+COPY . .
 
 # Set environment variables for auto-instrumentation
 ENV OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED=true
