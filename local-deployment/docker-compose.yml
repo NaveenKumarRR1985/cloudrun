@@ -1,0 +1,55 @@
+services:
+  # Python E-Commerce Application
+  ecommerce-app:
+    build:
+      context: .              # Build from current directory
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      # OpenTelemetry configuration
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+      - OTEL_SERVICE_NAME=ecommerce-demo
+      - OTEL_SERVICE_VERSION=1.0.0
+      - OTEL_RESOURCE_ATTRIBUTES=service.name=ecommerce-demo,service.version=1.0.0,deployment.environment=local
+      
+      # Enable logging instrumentation
+      - OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED=true
+      - OTEL_LOG_LEVEL=INFO
+      - OTEL_PROPAGATORS=tracecontext,baggage,b3
+      - OTEL_PYTHON_DISABLED_INSTRUMENTATIONS=""
+    depends_on:
+      - otel-collector
+    networks:
+      - observability
+
+  # OpenTelemetry Collector
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.91.0
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-config/collector-config.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "13133:13133" # Health check
+    depends_on:
+      - jaeger
+    networks:
+      - observability
+
+  # Jaeger for trace visualization
+  jaeger:
+    image: jaegertracing/all-in-one:1.50
+    ports:
+      - "16686:16686"  # Jaeger UI
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+      - LOG_LEVEL=info
+    networks:
+      - observability
+
+networks:
+  observability:
+    driver: bridge

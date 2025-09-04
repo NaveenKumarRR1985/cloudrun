@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  # Python Flask Application
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED=true
+      - OTEL_SERVICE_NAME=flask-demo-app
+      - OTEL_SERVICE_VERSION=1.0.0
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+      - OTEL_RESOURCE_ATTRIBUTES=service.name=flask-demo-app,service.version=1.0.0,deployment.environment=production
+    depends_on:
+      - otel-collector
+    networks:
+      - telemetry-network
+
+  # OpenTelemetry Collector (Sidecar)
+  otel-collector:
+    image: otel/opentelemetry-collector:0.88.0
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - "4317:4317"   # OTLP gRPC receiver
+      - "4318:4318"   # OTLP HTTP receiver
+    networks:
+      - telemetry-network
+
+networks:
+  telemetry-network:
+    driver: bridge

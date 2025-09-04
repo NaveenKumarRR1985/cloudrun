@@ -1,0 +1,317 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="glass-card p-8">
+    <h1 class="text-4xl font-bold text-white mb-8 text-center">📦 Products Catalog</h1>
+    
+    <div class="mb-6 flex justify-center">
+        <div class="bg-white bg-opacity-20 p-4 rounded-lg">
+            <h3 class="text-lg font-semibold text-white mb-3">Filter Products</h3>
+            <div class="flex space-x-4">
+                <button onclick="filterProducts('all')" class="btn-primary text-sm px-4 py-2" id="filter-all">All</button>
+                <button onclick="filterProducts('Electronics')" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-all duration-300" id="filter-electronics">💻 Electronics</button>
+                <button onclick="filterProducts('Kitchen')" class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg transition-all duration-300" id="filter-kitchen">☕ Kitchen</button>
+                <button onclick="filterProducts('Education')" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-all duration-300" id="filter-education">📚 Education</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="products-grid">
+        {% for product in products %}
+        <div class="metric-card product-card" data-category="{{ product.category }}">
+            <div class="text-center">
+                <div class="text-5xl mb-4">
+                    {% if product.category == 'Electronics' %}💻
+                    {% elif product.category == 'Kitchen' %}☕
+                    {% else %}📚{% endif %}
+                </div>
+                <h3 class="text-xl font-bold text-gray-800 mb-2">{{ product.name }}</h3>
+                <p class="text-gray-600 mb-2 font-medium">{{ product.category }}</p>
+                <div class="text-2xl font-bold text-green-600 mb-4">${{ "%.2f"|format(product.price) }}</div>
+                
+                <div class="space-y-2">
+                    <button onclick="viewProduct({{ product.id }}, '{{ product.name }}')" class="btn-primary w-full">View Details</button>
+                    <button onclick="addToCart({{ product.id }}, '{{ product.name }}', {{ product.price }})" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-all duration-300 w-full">
+                        🛒 Add to Cart
+                    </button>
+                    <button onclick="addToWishlist({{ product.id }}, '{{ product.name }}')" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg transition-all duration-300 w-full">
+                        ❤️ Wishlist
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    {% if not products %}
+    <div class="text-center py-12">
+        <div class="text-6xl mb-4">📦</div>
+        <p class="text-white text-xl">No products available</p>
+        <p class="text-white opacity-70">Please check back later!</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Product Details Modal -->
+<div id="productModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="glass-card p-8 max-w-md w-full mx-4">
+        <div class="text-center">
+            <div id="modalIcon" class="text-5xl mb-4">📦</div>
+            <h3 id="modalTitle" class="text-2xl font-bold text-white mb-2">Product Details</h3>
+            <p id="modalCategory" class="text-gray-300 mb-4">Category</p>
+            <div id="modalPrice" class="text-3xl font-bold text-green-400 mb-6">$0.00</div>
+            <p id="modalDescription" class="text-gray-300 mb-6">Product description goes here...</p>
+            
+            <div class="flex space-x-4">
+                <button onclick="closeModal()" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition-all duration-300">
+                    Close
+                </button>
+                <button id="modalAddToCart" class="btn-primary px-6 py-2">
+                    🛒 Add to Cart
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Cart Summary -->
+<div class="glass-card p-6 mt-8">
+    <h3 class="text-2xl font-bold text-white mb-4">🛒 Shopping Cart Summary</h3>
+    <div class="bg-white bg-opacity-10 p-4 rounded-lg">
+        <div class="flex justify-between items-center mb-2">
+            <span class="text-white">Items in Cart:</span>
+            <span id="cartCount" class="text-white font-bold">0</span>
+        </div>
+        <div class="flex justify-between items-center mb-4">
+            <span class="text-white">Total Value:</span>
+            <span id="cartTotal" class="text-green-400 font-bold text-xl">$0.00</span>
+        </div>
+        <div class="flex space-x-4">
+            <button onclick="viewCart()" class="btn-primary flex-1">View Cart</button>
+            <button onclick="clearCart()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition-all duration-300">
+                Clear Cart
+            </button>
+        </div>
+    </div>
+    <div id="cartItems" class="mt-4 space-y-2 max-h-40 overflow-y-auto"></div>
+</div>
+
+<script>
+    let cart = [];
+    let wishlist = [];
+    
+    function filterProducts(category) {
+        console.log(`Filtering products by category: ${category}`);
+        
+        const products = document.querySelectorAll('.product-card');
+        const buttons = document.querySelectorAll('[id^="filter-"]');
+        
+        // Reset button styles
+        buttons.forEach(btn => {
+            btn.className = btn.className.replace('btn-primary', 'bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-all duration-300');
+        });
+        
+        // Highlight active filter
+        document.getElementById(`filter-${category.toLowerCase()}`).className = 'btn-primary px-4 py-2';
+        
+        products.forEach(product => {
+            if (category === 'all' || product.dataset.category === category) {
+                product.style.display = 'block';
+                product.style.animation = 'fadeIn 0.5s ease-in';
+            } else {
+                product.style.display = 'none';
+            }
+        });
+        
+        // Log telemetry data
+        addToActivityLog(`🔍 Filtered products: ${category}`);
+    }
+    
+    function viewProduct(productId, productName) {
+        console.log(`Viewing product ${productId}: ${productName}`);
+        addToActivityLog(`👀 Viewed product: ${productName}`);
+        
+        // Simulate API call to get product details
+        fetch(`/api/products/${productId}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => {
+            if (response.ok) {
+                return response.json();
+            }
+            // Return mock data since endpoint doesn't exist
+            return {
+                id: productId,
+                name: productName,
+                category: 'Sample Category',
+                price: Math.random() * 100 + 10,
+                description: 'This is a sample product description with all the amazing features you would expect!'
+            };
+        })
+        .then(data => {
+            showProductModal(data);
+        })
+        .catch(error => {
+            console.error('Error loading product:', error);
+            addToActivityLog(`❌ Failed to load product: ${productName}`);
+        });
+    }
+    
+    function showProductModal(product) {
+        const modal = document.getElementById('productModal');
+        const icon = document.getElementById('modalIcon');
+        const title = document.getElementById('modalTitle');
+        const category = document.getElementById('modalCategory');
+        const price = document.getElementById('modalPrice');
+        const description = document.getElementById('modalDescription');
+        const addToCartBtn = document.getElementById('modalAddToCart');
+        
+        // Set icon based on category
+        if (product.category === 'Electronics') icon.textContent = '💻';
+        else if (product.category === 'Kitchen') icon.textContent = '☕';
+        else icon.textContent = '📚';
+        
+        title.textContent = product.name;
+        category.textContent = product.category;
+        price.textContent = `${product.price.toFixed(2)}`;
+        description.textContent = product.description || 'This product comes with amazing features and excellent quality!';
+        
+        addToCartBtn.onclick = () => {
+            addToCart(product.id, product.name, product.price);
+            closeModal();
+        };
+        
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+    
+    function closeModal() {
+        const modal = document.getElementById('productModal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+    
+    function addToCart(productId, productName, price) {
+        const existingItem = cart.find(item => item.id === productId);
+        
+        if (existingItem) {
+            existingItem.quantity += 1;
+        } else {
+            cart.push({
+                id: productId,
+                name: productName,
+                price: price,
+                quantity: 1
+            });
+        }
+        
+        updateCartDisplay();
+        addToActivityLog(`🛒 Added to cart: ${productName} (${price.toFixed(2)})`);
+        console.log('Cart updated:', cart);
+    }
+    
+    function addToWishlist(productId, productName) {
+        if (!wishlist.find(item => item.id === productId)) {
+            wishlist.push({
+                id: productId,
+                name: productName
+            });
+            addToActivityLog(`❤️ Added to wishlist: ${productName}`);
+        } else {
+            addToActivityLog(`ℹ️ ${productName} already in wishlist`);
+        }
+        console.log('Wishlist updated:', wishlist);
+    }
+    
+    function updateCartDisplay() {
+        const cartCount = document.getElementById('cartCount');
+        const cartTotal = document.getElementById('cartTotal');
+        const cartItems = document.getElementById('cartItems');
+        
+        const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+        const totalValue = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        
+        cartCount.textContent = totalItems;
+        cartTotal.textContent = `${totalValue.toFixed(2)}`;
+        
+        // Update cart items display
+        cartItems.innerHTML = '';
+        cart.forEach(item => {
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'bg-white bg-opacity-10 p-2 rounded text-white text-sm';
+            itemDiv.innerHTML = `
+                <span>${item.name} (x${item.quantity})</span>
+                <span class="float-right">${(item.price * item.quantity).toFixed(2)}</span>
+            `;
+            cartItems.appendChild(itemDiv);
+        });
+    }
+    
+    function viewCart() {
+        if (cart.length === 0) {
+            addToActivityLog('🛒 Cart is empty');
+            alert('Your cart is empty!');
+            return;
+        }
+        
+        const cartSummary = cart.map(item => 
+            `${item.name} (x${item.quantity}) - ${(item.price * item.quantity).toFixed(2)}`
+        ).join('\n');
+        
+        const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        
+        addToActivityLog('🛒 Viewed cart contents');
+        alert(`Cart Contents:\n\n${cartSummary}\n\nTotal: ${total.toFixed(2)}`);
+    }
+    
+    function clearCart() {
+        if (cart.length === 0) {
+            addToActivityLog('🛒 Cart already empty');
+            return;
+        }
+        
+        cart = [];
+        updateCartDisplay();
+        addToActivityLog('🗑️ Cart cleared');
+        console.log('Cart cleared');
+    }
+    
+    function addToActivityLog(message) {
+        // This function would typically send to a logging endpoint
+        console.log(`Activity: ${message}`);
+        
+        // If there's a global activity log, update it
+        if (typeof addToLog === 'function') {
+            addToLog(message);
+        }
+    }
+    
+    // Initialize filter buttons
+    document.addEventListener('DOMContentLoaded', function() {
+        filterProducts('all');
+        updateCartDisplay();
+        
+        // Add CSS animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes fadeIn {
+                from { opacity: 0; transform: translateY(10px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+        `;
+        document.head.appendChild(style);
+        
+        addToActivityLog('📦 Products page loaded');
+    });
+    
+    // Close modal when clicking outside
+    document.getElementById('productModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeModal();
+        }
+    });
+</script>
+{% endblock %}

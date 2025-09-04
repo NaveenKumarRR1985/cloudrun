@@ -1,0 +1,74 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+    send_batch_max_size: 2048
+
+  resource:
+    attributes:
+      - key: service.name
+        action: upsert
+        value: flask-demo-app
+      - key: service.version
+        action: upsert
+        value: 1.0.0
+      - key: deployment.environment
+        action: upsert
+        value: production
+
+  # memory_limiter:
+  #   limit_mib: 128
+  #   spike_limit_mib: 32
+
+exporters:
+  # Dynatrace OTLP exporter
+  otlp:
+    endpoint: ${DYNATRACE_OTLP_ENDPOINT}
+    headers:
+      Authorization: "Api-Token ${DYNATRACE_API_TOKEN}"
+    sending_queue:
+      enabled: true
+      num_consumers: 10
+      queue_size: 1000
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
+
+  # Logging exporter for debugging (optional)
+  logging:
+    loglevel: info
+    sampling_initial: 5
+    sampling_thereafter: 200
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [resource, batch]
+      exporters: [logging]
+    
+    metrics:
+      receivers: [otlp]
+      processors: [resource, batch]
+      exporters: [logging]
+    
+    logs:
+      receivers: [otlp]
+      processors: [resource, batch]
+      exporters: [logging]
+
+  extensions: []
+  
+  telemetry:
+    logs:
+      level: "info"

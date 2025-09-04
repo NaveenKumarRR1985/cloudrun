@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="text-center mb-12">
+    <h1 class="text-5xl font-bold text-white mb-4">🚀 OpenTelemetry Demo App</h1>
+    <p class="text-xl text-white opacity-90">Generate traces, metrics, and logs automatically!</p>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <div class="metric-card text-center">
+        <div class="text-3xl font-bold text-blue-600" id="activeUsers">0</div>
+        <div class="text-gray-600">Active Users</div>
+    </div>
+    <div class="metric-card text-center">
+        <div class="text-3xl font-bold text-green-600" id="totalRequests">0</div>
+        <div class="text-gray-600">Total Requests</div>
+    </div>
+    <div class="metric-card text-center">
+        <div class="text-3xl font-bold text-orange-600" id="avgResponseTime">0ms</div>
+        <div class="text-gray-600">Avg Response Time</div>
+    </div>
+    <div class="metric-card text-center">
+        <div class="text-3xl font-bold text-red-600" id="errorRate">0%</div>
+        <div class="text-gray-600">Error Rate</div>
+    </div>
+</div>
+
+<div class="glass-card p-8">
+    <h2 class="text-3xl font-bold text-white mb-6 text-center">🧪 Test Telemetry Generation</h2>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="bg-white bg-opacity-20 p-6 rounded-lg">
+            <h3 class="text-xl font-semibold text-white mb-4">📡 API Calls</h3>
+            <button onclick="makeExternalCall()" class="btn-primary w-full mb-2">External API Call</button>
+            <button onclick="makeSlowCall()" class="btn-primary w-full mb-2">Slow Operation</button>
+            <button onclick="makeErrorCall()" class="btn-primary w-full">Trigger Error</button>
+        </div>
+        
+        <div class="bg-white bg-opacity-20 p-6 rounded-lg">
+            <h3 class="text-xl font-semibold text-white mb-4">👤 User Actions</h3>
+            <input type="text" id="userName" placeholder="User Name" class="w-full p-3 mb-2 rounded-lg border-0 bg-white bg-opacity-80">
+            <input type="email" id="userEmail" placeholder="User Email" class="w-full p-3 mb-2 rounded-lg border-0 bg-white bg-opacity-80">
+            <button onclick="createUser()" class="btn-primary w-full">Create User</button>
+        </div>
+        
+        <div class="bg-white bg-opacity-20 p-6 rounded-lg">
+            <h3 class="text-xl font-semibold text-white mb-4">📊 Load Testing</h3>
+            <button onclick="startLoadTest()" class="btn-primary w-full mb-2" id="loadTestBtn">Start Load Test</button>
+            <button onclick="checkHealth()" class="btn-primary w-full">Health Check</button>
+            <div id="loadTestStatus" class="text-white text-sm mt-2"></div>
+        </div>
+    </div>
+</div>
+
+<div class="glass-card p-6 mt-8">
+    <h3 class="text-2xl font-bold text-white mb-4">📝 Recent Activity</h3>
+    <div id="activityLog" class="bg-white bg-opacity-10 p-4 rounded-lg h-40 overflow-y-scroll">
+        <p class="text-white opacity-70">Activity logs will appear here...</p>
+    </div>
+</div>
+
+<script>
+    let isLoadTesting = false;
+    let requestCount = 0;
+    
+    function addToLog(message) {
+        const log = document.getElementById('activityLog');
+        const timestamp = new Date().toLocaleTimeString();
+        log.innerHTML += `<p class="text-white text-sm">[${timestamp}] ${message}</p>`;
+        log.scrollTop = log.scrollHeight;
+    }
+    
+    async function makeExternalCall() {
+        addToLog('🌐 Making external API call...');
+        try {
+            const response = await fetch('/api/external');
+            const data = await response.json();
+            addToLog(`✅ External API call successful`);
+            requestCount++;
+            updateMetrics();
+        } catch (error) {
+            addToLog(`❌ External API call failed: ${error.message}`);
+        }
+    }
+    
+    async function makeSlowCall() {
+        addToLog('🐌 Starting slow operation...');
+        const startTime = Date.now();
+        try {
+            const response = await fetch('/api/slow');
+            const data = await response.json();
+            const duration = Date.now() - startTime;
+            addToLog(`✅ Slow operation completed in ${duration}ms`);
+            requestCount++;
+            updateMetrics();
+        } catch (error) {
+            addToLog(`❌ Slow operation failed: ${error.message}`);
+        }
+    }
+    
+    async function makeErrorCall() {
+        addToLog('💥 Triggering error endpoint...');
+        try {
+            const response = await fetch('/api/error');
+            if (response.ok) {
+                addToLog('🤔 Error endpoint returned success unexpectedly');
+            } else {
+                addToLog('❌ Error endpoint triggered as expected');
+            }
+            requestCount++;
+            updateMetrics();
+        } catch (error) {
+            addToLog(`💥 Error endpoint failed: ${error.message}`);
+        }
+    }
+    
+    async function createUser() {
+        const name = document.getElementById('userName').value;
+        const email = document.getElementById('userEmail').value;
+        
+        if (!name || !email) {
+            addToLog('⚠️ Please fill in both name and email');
+            return;
+        }
+        
+        addToLog(`👤 Creating user: ${name}`);
+        try {
+            const response = await fetch('/api/users', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ name, email }),
+            });
+            const data = await response.json();
+            addToLog(`✅ User created successfully: ${name}`);
+            document.getElementById('userName').value = '';
+            document.getElementById('userEmail').value = '';
+            requestCount++;
+            updateMetrics();
+        } catch (error) {
+            addToLog(`❌ User creation failed: ${error.message}`);
+        }
+    }
+    
+    async function startLoadTest() {
+        const btn = document.getElementById('loadTestBtn');
+        const status = document.getElementById('loadTestStatus');
+        
+        if (isLoadTesting) {
+            isLoadTesting = false;
+            btn.textContent = 'Start Load Test';
+            status.textContent = '';
+            addToLog('🛑 Load test stopped');
+            return;
+        }
+        
+        isLoadTesting = true;
+        btn.textContent = 'Stop Load Test';
+        addToLog('🚀 Load test started - generating requests...');
+        
+        while (isLoadTesting) {
+            const endpoints = ['/api/external', '/api/slow', '/health'];
+            const randomEndpoint = endpoints[Math.floor(Math.random() * endpoints.length)];
+            
+            try {
+                await fetch(randomEndpoint);
+                requestCount++;
+                status.textContent = `Requests sent: ${requestCount}`;
+                updateMetrics();
+            } catch (error) {
+                console.error('Load test request failed:', error);
+            }
+            
+            await new Promise(resolve => setTimeout(resolve, Math.random() * 2000 + 500));
+        }
+    }
+    
+    async function checkHealth() {
+        addToLog('🏥 Checking application health...');
+        try {
+            const response = await fetch('/health');
+            const data = await response.json();
+            addToLog(`✅ Health check passed: ${data.status}`);
+        } catch (error) {
+            addToLog(`❌ Health check failed: ${error.message}`);
+        }
+    }
+    
+    function updateMetrics() {
+        document.getElementById('activeUsers').textContent = Math.floor(Math.random() * 50) + 1;
+        document.getElementById('totalRequests').textContent = requestCount;
+        document.getElementById('avgResponseTime').textContent = Math.floor(Math.random() * 500) + 50 + 'ms';
+        document.getElementById('errorRate').textContent = (Math.random() * 5).toFixed(1) + '%';
+    }
+    
+    // Auto-update metrics
+    setInterval(updateMetrics, 5000);
+    updateMetrics();
+    
+    // Initial log entry
+    addToLog('🎉 Application loaded and ready for testing!');
+</script>
+{% endblock %}
